@@ -1,0 +1,8 @@
+{
+  "node_version": "22",
+  "graphs": {
+    "plannerAgent": "./src/agents/planner-agent.ts:plannerAgent",
+    "searchAgent": "./src/agents/search-agent.ts:searchAgent"
+  },
+  "env": ".env"
+}

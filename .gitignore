@@ -71,3 +71,5 @@ yarn.lock
 pnpm-lock.yaml
 # End of Selection
 ```
+# LangGraph API
+.langgraph_api

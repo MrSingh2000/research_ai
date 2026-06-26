@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "langgraph": "npx @langchain/langgraph-cli dev",
+    "start": "npx tsx src/index.ts"
   },
   "keywords": [],
   "author": "",
@@ -22,6 +24,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@langchain/langgraph-cli": "^1.4.1",
     "@types/node": "^26.0.1"
   }
 }

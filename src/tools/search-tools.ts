@@ -1,21 +1,25 @@
 import { tool } from "langchain";
 import z from "zod";
 import tavilyClient from "../remote/tavily";
-import { TavilySearchResponse } from "@tavily/core";
+import type { TavilySearchResponse } from "@tavily/core";
 import serpApiClient from "../remote/serp-api";
 
 const webSearch = tool(
   async ({ query }) => {
-    const response: TavilySearchResponse = await tavilyClient.search(query);
+    const response: TavilySearchResponse = await tavilyClient.search(query, {
+      maxResults: 1,
+      chunksPerSource: 1,
+    });
 
-    return response.results
-      .map((result) => ({
-        title: result.title,
-        content: result.content,
-        publishedDate: result.publishedDate,
-        url: result.url,
-      }))
-      .join("\n");
+    const documents = response.results.map((result) => ({
+      title: result.title,
+      content: result.content,
+      url: result.url,
+    }));
+
+    return {
+      content: JSON.stringify(documents, null, 2),
+    };
   },
   {
     name: "web_search",
@@ -29,13 +33,16 @@ const webSearch = tool(
 const webSearchFallback = tool(
   async ({ query }) => {
     const response = await serpApiClient(query);
-    return response.organic_results
-      .map((result) => ({
-        title: result.title,
-        content: result.snippet,
-        url: result.link,
-      }))
-      .join("\n");
+
+    const documents = response.organic_results.map((result: any) => ({
+      title: result.title,
+      content: result.snippet,
+      url: result.link,
+    }));
+
+    return {
+      content: JSON.stringify(documents, null, 2),
+    };
   },
   {
     name: "web_search_fallback",

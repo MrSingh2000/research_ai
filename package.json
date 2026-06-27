@@ -4,14 +4,17 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest --mode int",
     "langgraph": "npx @langchain/langgraph-cli dev",
     "start": "npx tsx src/index.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "dependencies": {
     "@langchain/core": "^1.2.1",
     "@langchain/langgraph": "^1.4.6",
@@ -25,6 +28,7 @@
   },
   "devDependencies": {
     "@langchain/langgraph-cli": "^1.4.1",
-    "@types/node": "^26.0.1"
+    "@types/node": "^26.0.1",
+    "vitest": "^4.1.9"
   }
 }

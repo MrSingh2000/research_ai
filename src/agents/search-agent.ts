@@ -1,16 +1,18 @@
-import { createAgent } from "langchain";
-import ollamaModel from "../model/ollama";
+import { type ReactAgent, createAgent, toolStrategy } from "langchain";
 import { getSearchTools } from "../tools/search-tools";
+import { loadSkill } from "../skills/load-skill";
+import type { ChatOllama } from "@langchain/ollama";
 
-export const searchAgent = async () => {
-  const model = await ollamaModel();
+export const createSearchAgent = async (
+  model: ChatOllama,
+): Promise<ReactAgent> => {
+  const systemPrompt = await loadSkill("researcher");
 
   return createAgent({
     model,
     tools: getSearchTools(),
-    systemPrompt:
-      "You are a search agent, your work is searching the internet about the query user asked using the provided tools. If the primary web_search tools returns any error try the fallback tool.",
+    systemPrompt,
   });
 };
 
-export default searchAgent;
+export default createSearchAgent;

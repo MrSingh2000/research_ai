@@ -1,63 +1,151 @@
-import { GraphNode } from "@langchain/langgraph";
+import type { GraphNode } from "@langchain/langgraph";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
-import { Runnable } from "@langchain/core/runnables";
-import { OrchestratorState } from "./orchestrator-utils";
+import type { ReactAgent } from "langchain";
+import {
+  AIMessage,
+  HumanMessage,
+  SystemMessage,
+} from "@langchain/core/messages";
+import {
+  OrchestratorState,
+  PlannerSchema,
+  ResearchFormatterSchema,
+  RouteSchema,
+  SummerizerSchema,
+} from "./orchestrator-utils";
+import { loadSkill } from "../skills/load-skill";
+import { appendFile } from "fs/promises";
+import type z from "zod";
 
-// ------ PLANNER -------
-export const createPlannerNode = (llm: BaseChatModel): GraphNode<typeof OrchestratorState> => {
+const RESEARCH_BATCH_SIZE = 4;
+
+export const createSupervisorNode = (
+  llm: BaseChatModel,
+): GraphNode<typeof OrchestratorState> => {
   return async (state) => {
-    const msg = await llm.invoke(
-      `Break down the following user query into a structured plan of clear, actionable steps, where each step describes a distinct individual search to be performed:\n\n"${state.query}"\n\nReturn the plan as a numbered list.`,
-    );
-    // TODO: convert the msg to plan here
-    return { plan: [] };
+    const structuredLlm = llm.withStructuredOutput(RouteSchema);
+    const systemPrompt = await loadSkill("supervisor");
+
+    const lastHumanMessage = state.messages.at(-1);
+    let humanQuery = "";
+
+    if (typeof lastHumanMessage?.content === "string") {
+      humanQuery = lastHumanMessage.content;
+    } else if (Array.isArray(lastHumanMessage?.content)) {
+      humanQuery =
+        (lastHumanMessage?.content as any).find((c: any) => c.type === "text")
+          ?.text ?? "";
+    }
+    const result = await structuredLlm.invoke([
+      new SystemMessage(systemPrompt),
+      new HumanMessage(humanQuery),
+    ]);
+
+    return result;
   };
 };
 
-export const createResearchNode = (agent: Runnable): GraphNode<typeof OrchestratorState> => {
+export const createPlannerNode = (
+  llm: BaseChatModel,
+): GraphNode<typeof OrchestratorState> => {
   return async (state) => {
-    // For each plan step, invoke the search agent and collect results as documents
-    const documents = await Promise.all(
-      state.plan.map(async (step: string) => {
-        // TODO: provide system prompt to agent to return these values in response
-        const result = await agent.invoke({ input: step });
+    const structuredLlm = llm.withStructuredOutput(PlannerSchema);
+    const systemPrompt = await loadSkill("planner");
 
-        // Attempt to extract fields assuming result is an object
-        if (
-          result &&
-          typeof result === "object" &&
-          "title" in result &&
-          "content" in result &&
-          "url" in result
-        ) {
+    const res = await structuredLlm.invoke([
+      new SystemMessage(systemPrompt),
+      new HumanMessage(state.query),
+    ]);
+
+    return res;
+  };
+};
+
+export const createResearchNode = (
+  agent: ReactAgent,
+  formatter: (
+    researches: {
+      task: string;
+      content: string;
+    }[],
+  ) => Promise<z.infer<typeof ResearchFormatterSchema>>,
+): GraphNode<typeof OrchestratorState> => {
+  return async (state) => {
+    console.log("entering research node");
+    console.dir(state.plan, { depth: null });
+    console.dir(state.documents, { depth: null });
+
+    let rawResearches: any = [];
+
+    if (state.plan.length === 0) {
+      // if haven't entered the planner flow
+      state.plan = [state.query];
+    }
+
+    for (let i = 0; i < state.plan.length; i += RESEARCH_BATCH_SIZE) {
+      const batch = state.plan.slice(i, i + RESEARCH_BATCH_SIZE);
+
+      const results = await Promise.all(
+        batch.map(async (step) => {
+          const result = await agent.invoke({
+            messages: [new HumanMessage(step)],
+          });
+
+          const lastAiMessage = result.messages
+            .filter((m) => m.type === "ai")
+            .at(-1);
+
+          const rawResearch =
+            typeof lastAiMessage?.content === "string"
+              ? lastAiMessage.content
+              : JSON.stringify(lastAiMessage?.content);
+
+          appendFile(
+            "research.log",
+            `\n===== ${new Date().toISOString()} =====\n${JSON.stringify(rawResearch, null, 2)}\n`,
+          );
+
           return {
-            title: result.title ?? step,
-            url: result.url ?? "",
-            content: result.content ?? "",
+            task: step,
+            content: rawResearch,
           };
-        }
+        }),
+      );
 
-        // Fallback if result is a string or unexpected format
-        return {
-          title: step,
-          url: "",
-          content: typeof result === "string" ? result : JSON.stringify(result),
-        };
-      }),
-    );
+      rawResearches = rawResearches.concat(results);
+    }
 
-    // Return documents in state update (MUST return, not void)
-    return { documents };
+    console.log("before formatting - ", rawResearches?.length);
+    const formatted = await formatter(rawResearches);
+    console.log("after formatting - ", formatted?.documents?.length);
+
+    return { documents: formatted.documents };
   };
 };
 
-export const createSummarizerNode = (llm: BaseChatModel): GraphNode<typeof OrchestratorState> => {
+export const createSummarizerNode = (
+  llm: BaseChatModel,
+): GraphNode<typeof OrchestratorState> => {
   return async (state) => {
-    // TODO:
-    // Summarize state.documents
+    console.log("entering summerizer node");
+    console.dir(state.documents, { depth: null });
+
+    const structuredLlm = llm.withStructuredOutput(SummerizerSchema);
+
+    const systemPrompt = await loadSkill("summerizer");
+
+    const documentTexts = state.documents
+      .map((doc, i) => `Source ${i + 1} (${doc.url}): ${doc.content}`)
+      .join("\n\n");
+
+    const res = await structuredLlm.invoke([
+      new SystemMessage(systemPrompt),
+      new HumanMessage(documentTexts),
+    ]);
 
     return {
-      summary: "",
+      summary: res.summary,
+      messages: [new AIMessage(res.summary)],
     };
   };
 };

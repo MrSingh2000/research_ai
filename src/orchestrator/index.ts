@@ -1,3 +1,3 @@
-import graph from "./graph";
+import { createOrchestratorGraph } from "./graph";
 
-export default graph;
+export default createOrchestratorGraph;

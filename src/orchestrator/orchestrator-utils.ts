@@ -1,8 +1,4 @@
-import {
-  StateSchema,
-  MessagesAnnotation,
-  MessagesValue,
-} from "@langchain/langgraph";
+import { StateSchema, MessagesValue } from "@langchain/langgraph";
 import z from "zod";
 
 export const GraphNodeStates = {
@@ -10,6 +6,8 @@ export const GraphNodeStates = {
   researcher: "researcher",
   summarizer: "summarizer",
   supervisor: "supervisor",
+  critic: "critic",
+  report: "report",
   start: "__start__",
   end: "__end__",
 } as const;
@@ -35,7 +33,13 @@ export const OrchestratorState = new StateSchema({
   review: z
     .object({
       complete: z.boolean(),
-      missingTopics: z.array(z.string()),
+      missingTopics: z.array(
+        z.object({
+          topic: z.string(),
+          query: z.string(),
+          reason: z.string(),
+        }),
+      ),
     })
     .default({
       complete: false,
@@ -48,26 +52,3 @@ export const OrchestratorState = new StateSchema({
 });
 
 export type OrchestratorStateType = typeof OrchestratorState.State;
-
-export const RouteSchema = z.object({
-  next: z.enum(GraphNodeStates),
-  query: z.string(),
-});
-
-export const PlannerSchema = z.object({
-  plan: z.array(z.string()),
-});
-
-export const ResearchFormatterSchema = z.object({
-  documents: z.array(
-    z.object({
-      title: z.string(),
-      url: z.string(),
-      content: z.string(),
-    }),
-  ),
-});
-
-export const SummerizerSchema = z.object({
-  summary: z.string(),
-});

@@ -1,7 +1,7 @@
 import { ChatOllama } from "@langchain/ollama";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
-import { ResearchFormatterSchema } from "../orchestrator/orchestrator-utils";
 import { loadSkill } from "../skills/load-skill";
+import { ResearchFormatterSchema } from "../orchestrator/schema/output-schema";
 
 const BATCH_SIZE = 5;
 

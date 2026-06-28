@@ -8,6 +8,11 @@ export const createSearchAgent = async (
 ): Promise<ReactAgent> => {
   const systemPrompt = await loadSkill("researcher");
 
+  /**
+   * Not using any strucutred output here as the agent performs multiple calls and unable to transform them into  single doucment
+   * This can be fixed but increase complexity and time.
+   * Alternatively, used another llm to format the response (check research-formatter.ts)
+   */
   return createAgent({
     model,
     tools: getSearchTools(),

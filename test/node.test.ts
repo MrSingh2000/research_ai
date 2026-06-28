@@ -102,7 +102,8 @@ describe("Research node", () => {
       }),
     };
 
-    const node = createResearchNode(fakeAgent as any);
+    const fakeFormatter = vi.fn().mockResolvedValue({ documents: [] });
+    const node = createResearchNode(fakeAgent as any, fakeFormatter);
 
     const result: any = await node(
       {
